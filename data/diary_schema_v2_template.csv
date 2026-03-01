@@ -1,0 +1,2 @@
+date,schema_version,severidad_global_0_10,fatiga_0_10,niebla_mental_0_10,malestar_post_esfuerzo_0_10,disfuncion_autonomica_0_10,dolor_0_10,animo_0_10,zolpidem_noche_anterior,dosis_extra_o_cambio_medicacion,nota_breve
+YYYY-MM-DD,DIARY_v2,0-10,0-10,0-10,0-10,0-10,0-10,0-10,0 or 1,,free text

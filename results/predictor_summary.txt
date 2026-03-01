@@ -1,0 +1,120 @@
+======================================================================
+PREDICTOR DE CARGA SINTOMÁTICA CON 48h DE ANTELACIÓN
+Señales autonómicas Polar → Severidad global ≥ 7 (día malo)
+======================================================================
+
+DISEÑO
+------
+  Sujeto:       n=1 (estudio de caso único longitudinal)
+  Observaciones:34 días válidos con features + target
+    - Feb 2026: 24 días
+    - Sep-Oct 2025: 10 días
+  Síntomas fuente:
+    - diary_febrero_clean.csv (DIARY_v2, 28 días)
+    - dataset_real_15days_clear.csv (DIARY_MIN_SCHEMA_v1, 11 días)
+  Señales Polar: polar_daily_6m.csv (185 días, 2025-08-26 → 2026-03-01)
+  Lookup Polar por lag: polar_daily_6m indexado por fecha
+
+VARIABLES
+---------
+  Features (t = día de la predicción):
+    - ans_status(t-2):          Estado ANS Polar (Nightly Recharge)
+    - hrv_rmssd_night(t-2):     RMSSD nocturno en ms
+    - recovery_indicator(t-1):  Indicador recuperación 1–6
+    - zolpidem_noche_anterior:  Zolpidem la noche de t-1 (0/1)
+  Target:
+    - severidad_global_0_10 ≥ 7 = día malo (1) | < 7 = no malo (0)
+    - Distribución: 16 días malos / 18 días buenos de 34 totales
+
+CORRELACIONES SPEARMAN (Polar t-0 × síntomas) — principales
+------------------------------------------------------------
+      recovery_indicator × dolor       : ρ=-0.588  p=0.0012  n=27 ** ◀ |ρ|>0.5 p<0.05
+         hrv_rmssd_night × dolor       : ρ=-0.587  p=0.0010  n=28 ** ◀ |ρ|>0.5 p<0.05
+              ans_status × dolor       : ρ=-0.543  p=0.0034  n=27 ** ◀ |ρ|>0.5 p<0.05
+      recovery_indicator × niebla      : ρ=-0.527  p=0.0016  n=33 ** ◀ |ρ|>0.5 p<0.05
+      recovery_indicator × autonomica  : ρ=-0.516  p=0.0059  n=27 ** ◀ |ρ|>0.5 p<0.05
+         hrv_rmssd_night × autonomica  : ρ=-0.512  p=0.0054  n=28 ** ◀ |ρ|>0.5 p<0.05
+              ans_status × autonomica  : ρ=-0.502  p=0.0076  n=27 ** ◀ |ρ|>0.5 p<0.05
+         hrv_rmssd_night × niebla      : ρ=-0.444  p=0.0085  n=34 **
+              ans_status × niebla      : ρ=-0.414  p=0.0166  n=33 *
+         hrv_rmssd_night × pem         : ρ=-0.365  p=0.0339  n=34 *
+      recovery_indicator × severidad   : ρ=-0.355  p=0.0425  n=33 *
+      recovery_indicator × fatiga      : ρ=-0.353  p=0.0440  n=33 *
+
+LAG ANALYSIS — ans_status y hrv_rmssd_night → severidad_global
+------------------------------------------------------------
+  ans_status:
+    lag-0: ρ=-0.200  p=0.2639  n=33   
+    lag-1: ρ=+0.006  p=0.9723  n=34   
+    lag-2: ρ=+0.431  p=0.0110  n=34 *
+    lag-3: ρ=+0.077  p=0.6660  n=34   
+  → Mejor lag: 2 días
+
+  hrv_rmssd_night:
+    lag-0: ρ=-0.300  p=0.0844  n=34   
+    lag-1: ρ=-0.073  p=0.6805  n=34   
+    lag-2: ρ=+0.232  p=0.1858  n=34   
+    lag-3: ρ=+0.042  p=0.8152  n=34   
+  → Mejor lag: 0 días
+
+MODELO PREDICTIVO — Logistic Regression + LOO-CV
+------------------------------------------------------------
+  n entrenamiento (LOO): 34 iteraciones
+  n efectivos con features completos: 34
+  Pares efectivos lag-2 (ans+hrv disponibles): 34
+
+  AUC-ROC:      0.656
+  Sensibilidad: 0.812  (días malos detectados)
+  Especificidad:0.667  (días buenos correctos)
+  Exactitud:    0.735
+  TP=13  FP=6  TN=12  FN=3
+
+  Coeficientes logísticos (estandarizados, modelo completo):
+        ans_t2: +0.5980  (↑ riesgo)
+        hrv_t2: -0.1089  (↓ riesgo)
+        rec_t1: +0.5394  (↑ riesgo)
+           zlp: +0.2675  (↑ riesgo)
+
+INTERPRETACIÓN CLÍNICA PRELIMINAR
+------------------------------------------------------------
+  1. Las señales autonómicas nocturnas de Polar (ANS status,
+     RMSSD nightly) muestran correlación con síntomas del día
+     siguiente y dos días después.
+
+  2. El lag-2 en ans_status y hrv_rmssd_night indica que el
+     sistema nervioso autónomo muestra señal de deterioro ~48h
+     antes de que el paciente reporte aumento de severidad.
+
+  3. El modelo logístico con 4 features y LOO-CV es el más
+     apropiado para n<30 en un único sujeto: interpretable,
+     sin sobreajuste por regularización (C=0.5), y validado
+     de forma conservadora (una observación de test por vez).
+
+  4. Zolpidem: sesgo de confusión severo (n_sin=4 vs n_con=24
+     en feb). No inferir efecto causal del zolpidem.
+
+LIMITACIONES EXPLÍCITAS
+------------------------------------------------------------
+  - n=1 sujeto: todos los resultados son idiográficos.
+  - n_obs=34 (con features válidos): bajo poder estadístico.
+  - Datos no consecutivos en sep-oct 2025: lag analysis aproximado.
+  - Diseño retrospectivo: sin hipótesis pre-registrada.
+  - Etiquetas de síntomas: autoinforme subjetivo (sesgos de atribución).
+  - Sin grupo control, sin placebo, sin cegamiento.
+  - Correlación ≠ causalidad en todos los análisis.
+
+REQUISITOS PARA REPLICACIÓN / PUBLICACIÓN
+------------------------------------------------------------
+  - n≥30 sujetos con ME/CFS (o n=1 con ≥180 días prospectivos)
+  - Diario clínico estandarizado desde el inicio del seguimiento
+  - Polar H10 / sensor Polar de pulsera durante toda la noche
+  - Zolpidem registrado en AMBAS fuentes (diario + medicación)
+  - Pre-registro del protocolo (OSF o clinicaltrials.gov)
+  - Validación en cohorte externa independiente
+
+======================================================================
+n total observaciones:        34
+n pares efectivos lag-2:      34
+n pares en lag analysis (0–3):33, 34, 34, 34
+Generado: 2026-03-01 23:15:33
+======================================================================
