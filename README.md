@@ -1,7 +1,7 @@
 # ANS-Based Symptom Prediction in Post-Infectious Fatigue (Post-Lyme)
 ### An N-of-1 Longitudinal Study Using a Consumer Wearable
 
-> **Key finding:** Autonomic nervous system status, measured nocturnally by a consumer wearable, predicts severe symptom burden **48 hours in advance** (ρ=+0.431, p=0.011, AUC=0.656, sensitivity=81%).
+> **Key finding:** Autonomic nervous system status, measured nocturnally by a consumer wearable, predicts severe symptom burden **48 hours in advance** (ρ=+0.431, p=0.016, AUC=0.656, sensitivity=81%).
 >
 > **Counterintuitive:** Sleep metrics do **not** predict symptom flares (ρ≈0). The signal lives in the ANS, not in sleep architecture.
 
@@ -26,12 +26,14 @@
 | Metric | Value |
 |---|---|
 | Best predictor | ANS status at lag-2 (t−48h) |
-| Spearman ρ (ANS status → severity) | +0.431 (p=0.011) |
+| Spearman ρ (ANS status → severity) | +0.431 (p=0.016) |
 | AUC-ROC (LOO-CV) | 0.656 |
 | Sensitivity (bad days detected) | 81.2% (13/16) |
 | Specificity | 66.7% (12/18) |
 | Model | Logistic Regression, C=0.5, class_weight=balanced |
 | Validation | Leave-One-Out Cross-Validation (n=34 iterations) |
+
+**Note:** lag calculated using exact date matching (`date - timedelta(days=2)`). Earlier positional `.shift(2)` method produced incorrect pairs due to dataset gaps — corrected in this version.
 
 **Interpretation:** A suppressed ANS status two nights before a high-severity day (≥7/10) is the strongest detectable early warning signal. The recovery indicator and RMSSD show strong cross-sectional correlations with pain and autonomic dysfunction (|ρ|>0.5, p<0.01) but weaker predictive lag.
 
