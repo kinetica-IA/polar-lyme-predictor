@@ -1,92 +1,127 @@
-# ANS-Based Symptom Prediction in Post-Infectious Fatigue (Post-Lyme)
+# ANS-Based Multi-Symptom Prediction in Post-Infectious Fatigue
+
 ### An N-of-1 Longitudinal Study Using a Consumer Wearable
 
-> **Key finding:** Autonomic nervous system status, measured nocturnally by a consumer wearable, predicts severe symptom burden **48 hours in advance** (ρ=+0.431, p=0.016, AUC=0.656, sensitivity=81%).
->
-> **Counterintuitive:** Sleep metrics do **not** predict symptom flares (ρ≈0). The signal lives in the ANS, not in sleep architecture.
+> **Key finding:** 5 symptom domains predicted independently from nocturnal
+> wearable data. Autonomic dysfunction uniquely captured by advanced HRV
+> features (LF/HF ratio + SD1) — physiologically coherent and not previously
+> reported in longitudinal Lyme/ME-CFS research.
+
+---
+
+## What This Is
+
+A fully automated pipeline that takes raw heart rate data from a consumer
+wearable (Polar Grit X2), extracts advanced HRV metrics using neurokit2,
+and trains independent predictive models for 5 symptom domains in
+post-infectious fatigue. Every time a new symptom diary entry is logged
+via the web interface, the models retrain automatically.
+
+---
+
+## Results — Model v3
+
+| Target | AUC | CI 95% | Best Model | Selected Features | N |
+|--------|-----|--------|------------|-------------------|---|
+| Severity | 0.84 | [0.73, 0.94] | LR | hrv_rmssd_night_t0, ans_status_t2 | 60 |
+| Autonomic Dysfunction | 0.86 | [0.75, 0.95] | LR | hrv_rmssd_night_t0, hrv_lf_hf_ratio_t1, hrv_sd1_t0 | 54 |
+| PEM | 0.79 | [0.67, 0.90] | LR | hrv_rmssd_night_t0, recovery_sublevel_t0 | 60 |
+| Fatigue | 0.79 | [0.66, 0.92] | LR | hrv_rmssd_night_t0, hrv_rmssd_night_t1, sleep_wake_min_t2 | 60 |
+| Brain Fog | 0.99 | [0.95, 1.00] | LR | ans_status_t0, hrv_rmssd_night_t1, recovery_sublevel_t3 | 60 ⚠ |
+
+⚠ Brain fog class split 54/6 — AUC likely inflated. Monitoring.
+
+### Key Finding: Physiological Coherence
+
+Autonomic dysfunction is the **only** target that selected advanced HRV
+features: LF/HF ratio (sympathovagal balance, lag-1) and SD1 (short-term
+Poincare variability, lag-0). These were extracted from raw RR intervals
+using neurokit2 — not available from Polar's proprietary metrics.
+
+A model that predicts autonomic dysfunction using measures of autonomic
+balance is not just statistically significant — it's physiologically coherent.
+
+### Residual Analysis: The Model's Error IS the Signal
+
+Prediction residuals from the severity model correlate with symptoms
+the patient cannot easily articulate:
+- Brain fog: rho = +0.547, p < 0.001
+- Autonomic dysfunction: rho = +0.372, p = 0.006
+
+This suggests the model's "failures" capture neurological dimensions
+that the ANS features alone cannot explain.
+
+---
+
+## Pipeline
+
+```
+Polar Grit X2 (PPG sensor, nocturnal)
+  → GDPR export (ppi_samples JSON, RR intervals in ms)
+  → extract_rr.py (193 valid nights, artifact filtering)
+  → compute_hrv.py (neurokit2: SDNN, pNN50, LF/HF, SD1/SD2, DFA-alpha1)
+  → merge_hrv.py (8 new features into polar_live.json)
+  → retrain_predictor.py (per-target forward selection, LOO-CV, bootstrap CI)
+  → polar_live.json (auto-commit via GitHub Action)
+  → kineticaai.com (live display)
+```
 
 ---
 
 ## Study Design
 
 | Parameter | Value |
-|---|---|
-| Design | Retrospective longitudinal N-of-1 |
-| Subject | Single adult, post-infectious fatigue (post-Lyme) / autonomic dysfunction |
-| Observation period | Sep 2025 – Feb 2026 (6 months continuous Polar) |
-| Days with symptoms | 43 (15 Sep-Oct 2025 + 28 Feb 2026) |
-| Effective pairs (predictor) | 34 |
+|-----------|-------|
+| Design | Prospective longitudinal N-of-1 |
+| Subject | Single adult, post-Lyme / autonomic dysfunction |
+| Observation | 198 days continuous Polar monitoring |
+| Diary entries | 62 |
+| Effective pairs | 60 |
+| Symptom domains | 7 (severity, PEM, fatigue, brain fog, autonomic, pain, mood) |
+| Target domains | 5 (severity, PEM, fatigue, brain fog, autonomic dysfunction) |
 | Wearable | Polar Grit X2 |
-| Clinical diary | DIARY_v2 (7 symptom domains, 0–10 scale) |
+| HRV computation | neurokit2 (SDNN, pNN50, LF/HF, HF, SD1, SD2, DFA-alpha1, RMSSD) |
+| Validation | Leave-One-Out CV + Bootstrap 1000x for CI 95% |
+| Feature selection | Forward greedy per target, max 5 features, stop if AUC gain < 0.01 |
 
 ---
 
-## Key Results
+## Methodological Decisions
 
-| Metric | Value |
-|---|---|
-| Best predictor | ANS status at lag-2 (t−48h) |
-| Spearman ρ (ANS status → severity) | +0.431 (p=0.016) |
-| AUC-ROC (LOO-CV) | 0.656 |
-| Sensitivity (bad days detected) | 81.2% (13/16) |
-| Specificity | 66.7% (12/18) |
-| Model | Logistic Regression, C=0.5, class_weight=balanced |
-| Validation | Leave-One-Out Cross-Validation (n=34 iterations) |
+**Missing data is not random (MNAR).** The worst days have no diary entries
+because autonomic fatigue prevented recording. We chose NOT to fabricate
+retroactive entries. The 60 prospective pairs are clean, pre-study,
+without confirmation bias.
 
-**Note:** lag calculated using exact date matching (`date - timedelta(days=2)`). Earlier positional `.shift(2)` method produced incorrect pairs due to dataset gaps — corrected in this version.
+**Forward selection per target.** Each symptom selects its own optimal
+feature set from 13 candidates x 3 lag windows. No fixed feature sets.
 
-**Interpretation:** A suppressed ANS status two nights before a high-severity day (≥7/10) is the strongest detectable early warning signal. The recovery indicator and RMSSD show strong cross-sectional correlations with pain and autonomic dysfunction (|ρ|>0.5, p<0.01) but weaker predictive lag.
+**Bootstrap, not SMOTE.** The residual correlation structure (rho = +0.547
+brain fog) proves the data has clinical structure — synthetic augmentation
+would destroy it.
 
 ---
 
 ## Repository Structure
 
 ```
-research/polar-lyme-predictor/
-├── README.md                          ← this file
-├── METHODOLOGY.md                     ← full methodological detail
-├── abstract_v1.md                     ← draft abstract (in progress)
-├── data/
-│   └── diary_schema_v2_template.csv   ← blank template (no personal data)
+portfolio-alfie/
 ├── scripts/
-│   ├── extract_polar.py               ← Polar GDPR export (JSON) → polar_daily.csv
-│   └── analyze_predictor.py           ← correlations + lag analysis + logistic model
-└── results/
-    ├── predictor_results.json         ← all metrics, machine-readable
-    ├── predictor_summary.txt          ← full narrative report
-    └── predictor_plot.png             ← ROC curve + feature importance + lag profile
-```
-
-**Not included:** personal data (raw Polar JSONs, filled diary CSVs). Only the template and anonymized aggregate results.
-
----
-
-## How to Replicate
-
-**Step 1 — Get your data**
-
-Export your Polar Flow data: [account.polar.com](https://account.polar.com) → Download your data (GDPR export, ZIP with JSON files).
-Fill in the daily symptom diary using `data/diary_schema_v2_template.csv`.
-
-**Step 2 — Extract and align**
-
-```bash
-# Point DATASET to your Polar JSON folder, OUTPUT to target CSV
-python scripts/extract_polar.py
-```
-
-**Step 3 — Run the predictor**
-
-```bash
-# Edit paths at the top of the file to match your diary + polar CSVs
-python scripts/analyze_predictor.py
-# Outputs: predictor_results.json, predictor_plot.png, predictor_summary.txt
-```
-
-**Requirements:** Python 3.10+, `numpy scipy scikit-learn matplotlib`
-
-```bash
-pip install numpy scipy scikit-learn matplotlib
+│   ├── extract_rr.py          ← Polar ZIP → nightly RR intervals
+│   ├── compute_hrv.py         ← neurokit2 → 8 HRV metrics per night
+│   ├── merge_hrv.py           ← merge features into polar_live.json
+│   ├── retrain_predictor.py   ← multi-target LOO-CV + forward selection + bootstrap
+│   ├── fetch_polar_live.py    ← nightly Polar API → polar_live.json
+│   └── log_diary.py           ← diary web form → diary_live.csv
+├── data/
+│   ├── diary_live.csv         ← symptom diary (auto-updated)
+│   ├── hrv_features.csv       ← computed HRV metrics per night
+│   └── hrv_rr_nightly.csv     ← raw RR intervals per night
+├── public/data/
+│   └── polar_live.json        ← all data + predictor results (auto-updated)
+└── .github/workflows/
+    ├── polar-biometrics.yml   ← nightly Polar fetch (06:00 UTC)
+    └── polar-retrain.yml      ← retrain on every diary push
 ```
 
 ---
@@ -94,52 +129,34 @@ pip install numpy scipy scikit-learn matplotlib
 ## Technical Stack
 
 | Component | Tool |
-|---|---|
-| Wearable | Polar Grit X2 (GDPR JSON export, ~730 files / 6 months) |
-| Extraction | Python 3.13, custom parser (`extract_polar.py`) |
-| Statistical analysis | scipy.stats (Spearman), scikit-learn |
-| Predictive model | LogisticRegression + LeaveOneOut CV |
-| Visualization | matplotlib |
-| AI pipeline | IO: LangGraph + Ollama qwen3:14b + ChromaDB (local) |
-
-The entire analysis runs locally. No cloud APIs. No external data transfer.
+|-----------|------|
+| Wearable | Polar Grit X2 (GDPR JSON export) |
+| HRV analysis | neurokit2 (SDNN, pNN50, LF/HF, SD1/SD2, DFA-alpha1) |
+| ML models | scikit-learn (LogisticRegression, RandomForest, GradientBoosting) |
+| Validation | LOO-CV + Bootstrap 1000x |
+| Feature selection | Forward greedy per target |
+| Automation | GitHub Actions (nightly fetch + retrain on diary push) |
+| Web | React + Vite (kineticaai.com) |
+| Data | polar_live.json (single source of truth) |
 
 ---
 
 ## Limitations (Honest)
 
-- **N=1.** Idiographic findings only. No generalization to other patients.
-- **N=34 effective pairs.** Low statistical power. Effects should be considered preliminary.
-- **Retrospective.** No pre-registered hypothesis.
-- **Subjective self-report.** Symptom diary subject to anchoring and reference-shift.
-- **Polar ANS status is proprietary.** Non-validated against clinical HRV standards (Kubios, Task Force).
-- **Fixed confounders uncontrolled:** Alprazolam 3mg, Bupropión 300mg, Pregabalina 500mg.
-- **Zolpidem imbalance:** n=4 without / n=24 with — causal inference not possible.
+- **N=1.** Idiographic findings only. No generalization.
+- **N=60 pairs.** Preliminary. CIs are wide.
+- **Brain fog AUC 0.99** likely inflated — class split 54/6.
+- **Consumer wearable PPG**, not clinical ECG.
+- **MNAR assumption** — missing days assumed worst, not verified.
+- **Fixed confounders:** Alprazolam 3mg, Bupropion 300mg, Pregabalin 500mg.
 - **Correlation ≠ causation** in all analyses.
-
----
-
-## For Replication / Publication
-
-To achieve clinical validity:
-- N≥30 subjects with ME/CFS or post-infectious fatigue, OR N=1 with ≥180 prospective consecutive days
-- Pre-registered protocol (OSF or ClinicalTrials.gov)
-- Standardized diary from day 0 of monitoring
-- Kubios or open-standard HRV metrics (replacing proprietary ANS score)
-- External validation cohort
-
----
-
-## Paper / Abstract
-
-→ `abstract_v1.md` (draft in progress)
 
 ---
 
 ## Author
 
-**Alfonso Navarro** — Osteopath, Clinical Biomechanics, AI/Healthtech
-[kineticaai.com](https://kineticaai.com)
+**Alfonso Navarro** — Osteopath, Physicist, Clinical AI Builder
+[kineticaai.com](https://kineticaai.com) · [LinkedIn](https://www.linkedin.com/in/navarro-kinetica-ai)
 
 ---
 

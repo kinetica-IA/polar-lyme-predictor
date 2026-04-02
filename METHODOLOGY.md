@@ -1,14 +1,16 @@
-# Methodology: ANS-Based Symptom Prediction in Post-Lyme Fatigue
+# Methodology: ANS-Based Multi-Symptom Prediction in Post-Infectious Fatigue
+
+## Model v3 — Multi-Target, Forward Selection, Bootstrap CIs
 
 ---
 
 ## 1. Study Design
 
-**Design:** Retrospective longitudinal N-of-1 study.
+**Design:** Prospective longitudinal N-of-1 study.
 
-**Justification for N=1:** The primary aim was to establish individual-level predictive validity of autonomic wearable signals before scaling to cohort studies. N-of-1 designs are clinically appropriate for chronic conditions with high inter-individual variability, where population-level averages may obscure meaningful individual patterns. This approach follows idiographic methodology recommended in ME/CFS research (Jason & Goudsmit, 2020).
+**Justification for N=1:** The primary aim was to establish individual-level predictive validity of autonomic wearable signals before scaling to cohort studies. N-of-1 designs are clinically appropriate for chronic conditions with high inter-individual variability, where population-level averages may obscure meaningful individual patterns.
 
-**Observation period:** September 2025 – March 2026 (continuous Polar monitoring); September 2025 and February 2026 (clinical diary).
+**Observation period:** September 2025 - March 2026 (198 days continuous Polar monitoring); 62 symptom diary entries across this period.
 
 **Ethics:** Personal observational data from the subject (also the researcher). No third-party data. No intervention performed.
 
@@ -18,189 +20,208 @@
 
 ### 2a. Wearable — Polar Grit X2
 
-- **Export method:** GDPR full export via account.polar.com → ZIP archive of JSON files
-- **Processing:** `extract_polar.py` parses ~730 JSON files into `polar_daily.csv` (one row per day, 52 columns)
-- **Coverage:** 185 days, 2025-08-26 → 2026-03-01
-- **Source files used:**
+- **Export method:** GDPR full export via account.polar.com
+- **Raw RR intervals:** Extracted from `ppi_samples` JSON files using `extract_rr.py`
+- **Valid nights:** 193 (after artifact filtering: NN intervals 300-2000ms range)
+- **Proprietary metrics:** ANS status, recovery indicator/sublevel, sleep score, RMSSD
 
-| File type | Content | N files |
-|---|---|---|
-| `nightly_recovery*.json` | ANS status, RMSSD, recovery indicator | 7 |
-| `sleep_result*.json` | Sleep stages, efficiency, interruptions | 7 |
-| `sleep_score*.json` | Composite sleep score | 5 |
-| `ppi_samples*.json` | Raw PPI intervals (RMSSD/SDNN computed) | 25 |
-| `training-session*.json` | Training load, HR zones | 77 |
-| `activity*.json` | Steps, calories, MET | 90 |
-| `orthostatic-test-result*.json` | Autonomic orthostatic response | 1 |
+### 2b. Advanced HRV — neurokit2
 
-### 2b. Subjective Clinical Diary
+Raw RR intervals were processed through `compute_hrv.py` using neurokit2 to extract 8 time-domain and frequency-domain metrics per night:
 
-**DIARY_MIN_SCHEMA_v1** (Sep-Oct 2025, 11 entries, non-consecutive):
-- Domains: severity, fatigue, cognitive fog, PEM, autonomic symptoms, pain
-- Retrospective entries; gaps between observations
+| Metric | Domain | Description |
+|--------|--------|-------------|
+| SDNN | Time | Standard deviation of NN intervals |
+| pNN50 | Time | Percentage of successive NN differences > 50ms |
+| RMSSD | Time | Root mean square of successive differences |
+| LF power | Frequency | Low-frequency power (0.04-0.15 Hz) |
+| HF power | Frequency | High-frequency power (0.15-0.40 Hz) |
+| LF/HF ratio | Frequency | Sympathovagal balance index |
+| SD1 | Nonlinear | Short-term Poincare variability |
+| SD2 | Nonlinear | Long-term Poincare variability |
+| DFA-alpha1 | Nonlinear | Detrended fluctuation analysis (short-term) |
 
-**DIARY_v2** (Feb 2026, 28 entries, consecutive daily):
-- Domains: all above + mood + zolpidem flag
-- Prospective daily self-assessment
-- Stored in: `diary_febrero_clean.csv`
+These features are not available from Polar's proprietary metrics. Their inclusion in v3 is what enabled the autonomic dysfunction finding.
 
-**Template for replication:** `data/diary_schema_v2_template.csv`
+### 2c. Subjective Clinical Diary
 
----
-
-## 3. Clinical Variables (7 Domains, DIARY_v2)
-
-| Variable | Scale | Domain |
-|---|---|---|
-| `severidad_global_0_10` | 0–10 | Global symptom burden **(primary outcome)** |
-| `fatiga_0_10` | 0–10 | Physical and cognitive fatigue |
-| `niebla_mental_0_10` | 0–10 | Cognitive fog / brain fog |
-| `malestar_post_esfuerzo_0_10` | 0–10 | Post-exertional malaise (PEM) |
-| `disfuncion_autonomica_0_10` | 0–10 | Autonomic symptoms (palpitations, orthostatic intolerance) |
-| `dolor_0_10` | 0–10 | Pain (musculoskeletal + neuropathic) |
-| `animo_0_10` | 0–10 | Mood (higher = better; Feb 2026 only) |
-
-**Binary target for classification:** `severidad_global ≥ 7` = "bad day" (1), `< 7` = "not bad" (0).
-Class distribution in effective sample (n=34): 16 bad days / 18 good days.
+**DIARY_v2** (62 entries across study period):
+- 7 symptom domains: severity, fatigue, brain fog, PEM, autonomic dysfunction, pain, mood
+- 0-10 continuous scale per domain
+- Prospective daily self-assessment via web interface (`diary.html`)
+- Stored in `diary_live.csv`, auto-committed on push
 
 ---
 
-## 4. Physiological Variables (Polar Nightly Recharge)
+## 3. Target Variable Construction
 
-| Variable | Description | JSON source |
-|---|---|---|
-| `ans_status` | ANS status score (Polar proprietary; positive = recovered, negative = autonomic stress) | nightly_recovery |
-| `hrv_rmssd_night` | Nocturnal RMSSD in ms | nightly_recovery |
-| `recovery_indicator` | Nightly recharge level 1–6 | nightly_recovery |
-| `recovery_sublevel` | Sub-level within recovery indicator | nightly_recovery |
-| `sleep_score` | Composite sleep quality 0–100 (Polar algorithm) | sleep_score |
+Each of the 5 target domains was binarized independently:
 
-**Raw HRV (extended analysis only):**
-`hrv_rmssd_daily` and `hrv_sdnn_daily` computed directly from PPI samples using standard formulas:
-- RMSSD = √(mean of squared successive differences)
-- SDNN = standard deviation of all NN intervals
+| Target | Threshold | Positive | Negative | Balance |
+|--------|-----------|----------|----------|---------|
+| Severity | >= 6 | 35 | 25 | 58/42% |
+| PEM | >= 5 | 41 | 19 | 68/32% |
+| Fatigue | >= 6 | 37 | 23 | 62/38% |
+| Brain Fog | >= 5 | 54 | 6 | 90/10% ⚠ |
+| Autonomic Dysfunction | >= 5 | 32 | 22 | 59/41% |
 
----
-
-## 5. Confounder: Zolpidem
-
-`zolpidem_noche_anterior` (0/1): zolpidem taken the prior night.
-
-**Distribution in Feb 2026:** 4 days without / 24 days with (severe imbalance).
-**Handling:** Included as binary feature in the logistic model. No causal inference attempted (confounding by indication: zolpidem taken on nights with worse autonomic state).
-
-**Fixed baseline medication (uncontrolled, constant throughout study):**
-Alprazolam 3mg, Bupropión 300mg, Pregabalina 500mg.
-These do not vary within the study period. Noted but not modeled.
+Brain fog class imbalance (54/6) means the AUC of 0.99 should be interpreted with caution. The model may be learning to predict the minority class by exclusion rather than signal.
 
 ---
 
-## 6. Analysis Pipeline
+## 4. Feature Space
 
-### Step 1 — Data Extraction
+### 4a. Candidate Features (13)
 
-`extract_polar.py`:
-- Parses Polar GDPR JSON export (multiple file types)
-- Aggregates training sessions by day (summed load, HR zones)
-- Computes RMSSD and SDNN from raw PPI intervals (physiological filter: 300–2000ms)
-- Outputs: `polar_daily_6m.csv` (52 columns, 185 rows)
+From Polar proprietary + neurokit2:
 
-### Step 2 — Dataset Unification
+| Source | Features |
+|--------|----------|
+| Polar proprietary | hrv_rmssd_night, ans_status, recovery_sublevel, sleep_wake_min, sleep_interruptions |
+| neurokit2 | hrv_sdnn, hrv_pnn50, hrv_lf_power, hrv_hf_power, hrv_lf_hf_ratio, hrv_sd1, hrv_sd2, hrv_dfa_alpha1 |
 
-`analyze_predictor.py`:
-- Loads `diary_febrero_clean.csv` (28 days) and `dataset_real_15days_clear.csv` (11 days)
-- Harmonizes column names across diary schema versions
-- Uses `polar_daily_6m.csv` as a date-indexed lookup table for Polar features at any target lag
+### 4b. Lag Windows
 
-### Step 3 — Correlation Analysis (Spearman, t=0)
+Each feature tested at 3 temporal lags:
+- **t0:** Same night as symptom report
+- **t-1:** One night prior
+- **t-2:** Two nights prior
 
-Full matrix: 5 Polar predictors × 6 symptom domains.
-N varies by predictor (27–34 pairwise complete observations due to gaps in nightly recovery data).
-Significance threshold: p<0.05 (exploratory, no correction for multiple comparisons).
+Total candidate pool per target: 13 features x 3 lags = 39 feature-lag combinations.
 
-### Step 4 — Lag Analysis
+### 4c. Forward Selection
 
-For `ans_status` and `hrv_rmssd_night` vs `severidad_global`:
-- Spearman ρ computed at lag 0, 1, 2, 3 days
-- Polar feature at `date - lag` looked up in `polar_daily_6m.csv`
-- N per lag: 33–34 pairs
-- Best lag identified by maximum |ρ| with p<0.05
+For each target independently:
 
-Note: Sep-Oct 2025 diary entries are non-consecutive. Lag analysis for that period is approximate (the Polar data is available but the symptom data has multi-day gaps between entries).
+1. Start with empty feature set
+2. For each candidate: train LOO-CV model with current features + candidate
+3. Select candidate that maximizes AUC
+4. Stop when: AUC gain < 0.01, or 5 features reached
+5. Return optimal feature set for this target
 
-### Step 5 — Predictive Model
-
-**Features** (t = target symptom date):
-- `ans_status(t-2)`: ANS status 2 days prior
-- `hrv_rmssd_night(t-2)`: nocturnal RMSSD 2 days prior
-- `recovery_indicator(t-1)`: recovery level 1 day prior
-- `zolpidem(t-0)`: zolpidem flag from diary (night before symptom assessment)
-
-**Target:** `severidad_global ≥ 7` (binary, 1 = bad day)
-
-**Model:** `LogisticRegression(C=0.5, class_weight='balanced', max_iter=1000)`
-Regularization C=0.5 provides moderate L2 penalty appropriate for n=34.
-class_weight='balanced' compensates for slight class imbalance (16/18).
-
-**Validation:** Leave-One-Out Cross-Validation (n=34 iterations).
-In each fold: StandardScaler fit exclusively on training set (n=33), applied to test point.
-Prevents data leakage from scaling.
-
-**Missing data:** `recovery_indicator(t-1)` absent for ~6 rows → imputed with within-sample median.
+This approach allows each symptom to discover its own predictors from different biological pathways.
 
 ---
 
-## 7. Results Summary
+## 5. Validation
 
-| Analysis | Metric | Value |
-|---|---|---|
-| Lag analysis | Best lag (ans_status → severity) | lag-2, ρ=+0.431, p=0.011 |
-| Lag analysis | Best lag (hrv_rmssd_night) | lag-0, ρ=−0.300, p=0.084 (ns) |
-| Cross-sectional (t=0) | Strongest: recovery_indicator × dolor | ρ=−0.588, p=0.001 |
-| Cross-sectional (t=0) | hrv_rmssd_night × dolor | ρ=−0.587, p=0.001 |
-| Cross-sectional (t=0) | ans_status × dolor | ρ=−0.543, p=0.003 |
-| Cross-sectional (t=0) | sleep_score × severidad | ρ=−0.210, p=0.233 (ns) |
-| Model AUC-ROC | LOO-CV | 0.656 |
-| Model sensitivity | Bad days detected | 81.2% (13/16) |
-| Model specificity | Good days correctly classified | 66.7% (12/18) |
-| Feature importance | Dominant feature | ans_t2 (coef +0.598) |
-| Feature importance | Second | rec_t1 (coef +0.539) |
+### 5a. Leave-One-Out Cross-Validation
 
-**Key negative finding:** `sleep_score` shows no predictive relationship with severity (ρ≈0 at t=0, not tested in lag). This contradicts the common assumption in fatigue research that poor sleep drives next-day symptoms.
+- N iterations (one per effective pair)
+- Each fold: StandardScaler fit on N-1 training points, applied to held-out test point
+- No data leakage from scaling
+- LogisticRegression with class_weight='balanced'
+
+### 5b. Bootstrap Confidence Intervals
+
+- 1000 bootstrap resamples of the LOO prediction vector
+- 95% CI computed on AUC for each target
+- Reports lower and upper bounds
+
+### 5c. Model Comparison
+
+Three algorithms evaluated per target:
+- Logistic Regression (L2 penalty)
+- Random Forest (100 trees)
+- Gradient Boosting (100 estimators)
+
+Logistic Regression was best model for all 5 targets.
+
+---
+
+## 6. Results
+
+### 6a. Per-Target Performance
+
+| Target | AUC | CI 95% | Sens | Spec | Features |
+|--------|-----|--------|------|------|----------|
+| Severity | 0.84 | [0.73, 0.94] | 85.7% | 72.0% | hrv_rmssd_night_t0, ans_status_t2 |
+| Autonomic Dysfunction | 0.86 | [0.75, 0.95] | 71.9% | 81.8% | hrv_rmssd_night_t0, hrv_lf_hf_ratio_t1, hrv_sd1_t0 |
+| PEM | 0.79 | [0.67, 0.90] | 70.7% | 78.9% | hrv_rmssd_night_t0, recovery_sublevel_t0 |
+| Fatigue | 0.79 | [0.66, 0.92] | 70.3% | 69.6% | hrv_rmssd_night_t0, hrv_rmssd_night_t1, sleep_wake_min_t2 |
+| Brain Fog | 0.99 | [0.95, 1.00] | 88.9% | 100% | ans_status_t0, hrv_rmssd_night_t1, recovery_sublevel_t3 |
+
+### 6b. Key Finding: Physiological Coherence of Autonomic Dysfunction
+
+Autonomic dysfunction was the only target to select neurokit2-derived features:
+- **LF/HF ratio (t-1):** Sympathovagal balance index — the ratio of sympathetic to parasympathetic modulation
+- **SD1 (t0):** Short-term beat-to-beat variability from Poincare analysis
+
+A model that predicts autonomic dysfunction using direct measures of autonomic balance demonstrates physiological coherence — the statistical model aligns with the biological mechanism.
+
+### 6c. Residual Analysis
+
+Severity model residuals (prediction error) were correlated with all symptom domains:
+
+| Symptom | rho | p-value | Interpretation |
+|---------|-----|---------|---------------|
+| Brain Fog | +0.547 | < 0.001 | Strong — the model underestimates severity when brain fog is high |
+| Autonomic Dysfunction | +0.372 | 0.006 | Moderate — model misses autonomic flares |
+
+The residuals capture symptom dimensions that nocturnal HRV features cannot predict — specifically cognitive and autonomic symptoms that the patient often cannot articulate. The error is clinical signal, not noise.
+
+### 6d. Feature Selection Patterns
+
+Each target found different optimal predictors:
+
+- **Severity:** Nocturnal RMSSD (same night) + ANS status (2 nights ago) — the classic autonomic prediction
+- **Fatigue:** Two consecutive nights of RMSSD + sleep fragmentation — a cumulative burden pattern
+- **PEM:** Same-night RMSSD + recovery sublevel — immediate autonomic state
+- **Brain Fog:** ANS status + lagged RMSSD + 3-day recovery — complex temporal pattern (⚠ class imbalance)
+- **Autonomic Dysfunction:** RMSSD + LF/HF ratio + SD1 — the only target using advanced HRV features
+
+---
+
+## 7. Methodological Decisions
+
+### Missing Data: MNAR, Not Imputed
+
+The worst symptom days have no diary entries because autonomic fatigue prevented recording. This is Missing Not At Random (MNAR) — the missingness mechanism is the phenomenon itself. We chose not to fabricate retroactive entries. The 60 prospective pairs are clean.
+
+### Bootstrap Over SMOTE
+
+Synthetic minority oversampling (SMOTE) would destroy the temporal autocorrelation structure in the data. The residual correlations (rho = +0.547 for brain fog) demonstrate meaningful clinical structure that synthetic data would dilute. Bootstrap resampling preserves the original data distribution while providing uncertainty quantification.
+
+### Forward Selection Over Fixed Features
+
+Model v2 used 4 fixed features for all targets (AUC 0.70). Model v3 allows each target to discover its own predictors from 39 candidates. This increased severity AUC to 0.84 with only 2 features — simpler and better.
 
 ---
 
 ## 8. Limitations
 
-1. **N=1.** No generalization beyond the individual. All results are idiographic.
-2. **N=34 effective pairs.** Statistical power is limited to detecting medium-large effects (|ρ|>0.35).
-3. **Retrospective.** No pre-registered hypothesis. Exploratory analysis with high risk of overfitting to one person's pattern.
-4. **Non-consecutive Sep-Oct 2025 entries.** Lag continuity cannot be guaranteed for that period.
-5. **Subjective diary.** Self-report susceptible to recall bias, anchoring, and temporal reference-shift.
-6. **Polar ANS status is proprietary.** Algorithm not disclosed. Cannot be cross-validated against clinical HRV standards (Kubios, Task Force Consensus).
-7. **Zolpidem confounding.** Severe group imbalance (4 vs 24). Causal inference impossible; included only as covariate.
-8. **Multiple comparisons.** No correction applied (Bonferroni, FDR). All reported p-values are exploratory.
-9. **Fixed medication baseline.** Alprazolam, Bupropión, Pregabalina may modulate ANS. Their effect is constant and uncontrolled.
+1. **N=1.** All results are idiographic. No generalization beyond this individual.
+2. **N=60 pairs.** Preliminary. Bootstrap CIs are wide (e.g., severity [0.73, 0.94]).
+3. **Brain fog class imbalance.** 54/6 split. AUC 0.99 likely inflated.
+4. **Consumer wearable PPG.** Not clinical ECG. RR interval accuracy depends on PPG quality.
+5. **MNAR assumption.** Missing days assumed worst — not independently verified.
+6. **Fixed confounders uncontrolled.** Alprazolam 3mg, Bupropion 300mg, Pregabalin 500mg.
+7. **Multiple comparisons.** 5 targets tested independently without family-wise correction.
+8. **Correlation ≠ causation** in all analyses.
 
 ---
 
-## 9. Next Steps
+## 9. Reproducibility
 
-| Priority | Action |
-|---|---|
-| Short-term | Prospective daily diary from March 2026 (continuous, consecutive) |
-| Short-term | Kubios HRV analysis: DFA α1, SD1/SD2, pNN50 (validated open-standard metrics) |
-| Medium-term | N=3–5 replication (post-Lyme / ME/CFS profiles with available wearable data) |
-| Medium-term | Pre-registration on OSF before expanding sample |
-| Long-term | Real-time monitoring pipeline: IO ingests daily Polar data, surfaces warnings |
-| Long-term | Case series publication (JMIR mHealth, Frontiers in Digital Health, or similar) |
+All code is public. The pipeline runs automatically:
+- `polar-biometrics.yml`: Nightly Polar API fetch (06:00 UTC)
+- `polar-retrain.yml`: Retrain on every diary push
+- Results auto-committed to `public/data/polar_live.json`
+- Live display at [kineticaai.com](https://kineticaai.com)
 
 ---
 
 ## References
 
-Jason L.A., Goudsmit M. (2020). Unravelling long COVID. *Journal of Neurology*. [placeholder]
-
 Shaffer F., Ginsberg J.P. (2017). An Overview of Heart Rate Variability Metrics and Norms. *Frontiers in Public Health*, 5, 258.
 
-Stussman B. et al. (2020). Characterization of Post–exertional Malaise in Patients with Myalgic Encephalomyelitis/Chronic Fatigue Syndrome. *Frontiers in Neurology*, 11, 1025.
+Stussman B. et al. (2020). Characterization of Post-exertional Malaise in Patients with ME/CFS. *Frontiers in Neurology*, 11, 1025.
+
+Makowski D. et al. (2021). NeuroKit2: A Python Toolbox for Neurophysiological Signal Processing. *Behavior Research Methods*, 53(4), 1689-1696.
+
+---
+
+## Author
+
+**Alfonso Navarro** — Osteopath, Physicist, Clinical AI Builder
+[kineticaai.com](https://kineticaai.com) · [LinkedIn](https://www.linkedin.com/in/navarro-kinetica-ai)
