@@ -1,245 +1,109 @@
 {
   "metadata": {
-    "n_total_obs": 34,
-    "n_feb2026": 24,
-    "n_sep_oct2025": 10,
-    "n_positive_target": 16,
-    "n_negative_target": 18,
-    "target_definition": "severidad_global >= 7",
-    "feature_lag": 2,
-    "model": "LogisticRegression(C=0.5, class_weight=balanced)",
-    "validation": "LeaveOneOut CV",
-    "generated": "2026-03-01 23:15:33"
+    "generated_at": "2026-05-10 18:08:44 UTC",
+    "model_version": "v3",
+    "data_path": "public/data/polar_live.json + data/diary_live.csv",
+    "note": "Reproducible from published data. Seed=42. Live pipeline (kineticaai.com) uses L4 feature path.",
+    "n_days": 243,
+    "n_diary_entries": 61,
+    "validation": "LOO-CV + Bootstrap 1000x",
+    "feature_selection": "Forward greedy per target, max 5, stop if AUC gain < 0.01",
+    "random_seed": 42
   },
-  "correlations_t0": {
-    "ans_status": {
-      "severidad": {
-        "rho": -0.2,
-        "p": 0.2639,
-        "n": 33
-      },
-      "fatiga": {
-        "rho": -0.189,
-        "p": 0.2926,
-        "n": 33
-      },
-      "niebla": {
-        "rho": -0.414,
-        "p": 0.0166,
-        "n": 33
-      },
-      "pem": {
-        "rho": -0.123,
-        "p": 0.4943,
-        "n": 33
-      },
-      "autonomica": {
-        "rho": -0.502,
-        "p": 0.0076,
-        "n": 27
-      },
-      "dolor": {
-        "rho": -0.543,
-        "p": 0.0034,
-        "n": 27
-      }
+  "headline": {
+    "target": "disfuncion_autonomica",
+    "auc": 0.837,
+    "ci95": [
+      0.7151,
+      0.9427
+    ],
+    "n": 55,
+    "features": [
+      "hrv_rmssd_night_t0",
+      "sleep_wake_min_t2"
+    ]
+  },
+  "targets": {
+    "severity": {
+      "auc": 0.9209,
+      "ci95": [
+        0.8442,
+        0.9868
+      ],
+      "selected_features": [
+        "hrv_rmssd_night_t0",
+        "ans_status_t2",
+        "hrv_sdnn_t2",
+        "hrv_dfa_alpha1_t2",
+        "recovery_sublevel_t0"
+      ],
+      "n_training": 61,
+      "best_model": "logistic_regression",
+      "sensitivity": 0.8857,
+      "specificity": 0.7692
     },
-    "hrv_rmssd_night": {
-      "severidad": {
-        "rho": -0.3,
-        "p": 0.0844,
-        "n": 34
-      },
-      "fatiga": {
-        "rho": -0.339,
-        "p": 0.05,
-        "n": 34
-      },
-      "niebla": {
-        "rho": -0.444,
-        "p": 0.0085,
-        "n": 34
-      },
-      "pem": {
-        "rho": -0.365,
-        "p": 0.0339,
-        "n": 34
-      },
-      "autonomica": {
-        "rho": -0.512,
-        "p": 0.0054,
-        "n": 28
-      },
-      "dolor": {
-        "rho": -0.587,
-        "p": 0.001,
-        "n": 28
-      }
+    "pem": {
+      "auc": 0.7951,
+      "ci95": [
+        0.6646,
+        0.9035
+      ],
+      "selected_features": [
+        "hrv_rmssd_night_t0",
+        "hrv_pnn50_t1",
+        "hrv_rmssd_night_t1"
+      ],
+      "n_training": 61,
+      "best_model": "logistic_regression",
+      "sensitivity": 0.6829,
+      "specificity": 0.8
     },
-    "recovery_indicator": {
-      "severidad": {
-        "rho": -0.355,
-        "p": 0.0425,
-        "n": 33
-      },
-      "fatiga": {
-        "rho": -0.353,
-        "p": 0.044,
-        "n": 33
-      },
-      "niebla": {
-        "rho": -0.527,
-        "p": 0.0016,
-        "n": 33
-      },
-      "pem": {
-        "rho": -0.291,
-        "p": 0.1008,
-        "n": 33
-      },
-      "autonomica": {
-        "rho": -0.516,
-        "p": 0.0059,
-        "n": 27
-      },
-      "dolor": {
-        "rho": -0.588,
-        "p": 0.0012,
-        "n": 27
-      }
+    "fatiga": {
+      "auc": 0.83,
+      "ci95": [
+        0.7051,
+        0.9464
+      ],
+      "selected_features": [
+        "hrv_rmssd_night_t0",
+        "sleep_wake_min_t2",
+        "hrv_hf_power_t0"
+      ],
+      "n_training": 61,
+      "best_model": "logistic_regression",
+      "sensitivity": 0.7027,
+      "specificity": 0.7917
     },
-    "recovery_sublevel": {
-      "severidad": {
-        "rho": 0.211,
-        "p": 0.2387,
-        "n": 33
-      },
-      "fatiga": {
-        "rho": 0.219,
-        "p": 0.2218,
-        "n": 33
-      },
-      "niebla": {
-        "rho": 0.153,
-        "p": 0.3939,
-        "n": 33
-      },
-      "pem": {
-        "rho": 0.231,
-        "p": 0.1965,
-        "n": 33
-      },
-      "autonomica": {
-        "rho": 0.213,
-        "p": 0.285,
-        "n": 27
-      },
-      "dolor": {
-        "rho": 0.117,
-        "p": 0.5601,
-        "n": 27
-      }
+    "niebla_mental": {
+      "auc": 0.9879,
+      "ci95": [
+        0.95,
+        1.0
+      ],
+      "selected_features": [
+        "ans_status_t0",
+        "hrv_rmssd_night_t1",
+        "recovery_sublevel_t3"
+      ],
+      "n_training": 61,
+      "best_model": "logistic_regression",
+      "sensitivity": 0.8909,
+      "specificity": 1.0
     },
-    "sleep_score": {
-      "severidad": {
-        "rho": -0.21,
-        "p": 0.2331,
-        "n": 34
-      },
-      "fatiga": {
-        "rho": -0.232,
-        "p": 0.187,
-        "n": 34
-      },
-      "niebla": {
-        "rho": -0.201,
-        "p": 0.2547,
-        "n": 34
-      },
-      "pem": {
-        "rho": -0.307,
-        "p": 0.0779,
-        "n": 34
-      },
-      "autonomica": {
-        "rho": -0.287,
-        "p": 0.1385,
-        "n": 28
-      },
-      "dolor": {
-        "rho": -0.353,
-        "p": 0.0653,
-        "n": 28
-      }
+    "disfuncion_autonomica": {
+      "auc": 0.837,
+      "ci95": [
+        0.7151,
+        0.9427
+      ],
+      "selected_features": [
+        "hrv_rmssd_night_t0",
+        "sleep_wake_min_t2"
+      ],
+      "n_training": 55,
+      "best_model": "logistic_regression",
+      "sensitivity": 0.8125,
+      "specificity": 0.7391
     }
-  },
-  "lag_analysis": {
-    "ans_status": {
-      "0": {
-        "rho": -0.2,
-        "p": 0.2639,
-        "n": 33
-      },
-      "1": {
-        "rho": 0.006,
-        "p": 0.9723,
-        "n": 34
-      },
-      "2": {
-        "rho": 0.431,
-        "p": 0.011,
-        "n": 34
-      },
-      "3": {
-        "rho": 0.077,
-        "p": 0.666,
-        "n": 34
-      }
-    },
-    "hrv_rmssd_night": {
-      "0": {
-        "rho": -0.3,
-        "p": 0.0844,
-        "n": 34
-      },
-      "1": {
-        "rho": -0.073,
-        "p": 0.6805,
-        "n": 34
-      },
-      "2": {
-        "rho": 0.232,
-        "p": 0.1858,
-        "n": 34
-      },
-      "3": {
-        "rho": 0.042,
-        "p": 0.8152,
-        "n": 34
-      }
-    }
-  },
-  "best_lags": {
-    "ans_status": 2,
-    "hrv_rmssd_night": 0
-  },
-  "model_loo_cv": {
-    "auc": 0.6562,
-    "sensitivity": 0.8125,
-    "specificity": 0.6667,
-    "accuracy": 0.7353,
-    "TP": 13,
-    "FP": 6,
-    "TN": 12,
-    "FN": 3,
-    "coefficients": {
-      "ans_t2": 0.598,
-      "hrv_t2": -0.1089,
-      "rec_t1": 0.5394,
-      "zlp": 0.2675
-    },
-    "n_total": 34,
-    "n_positive": 16,
-    "n_negative": 18
   }
 }

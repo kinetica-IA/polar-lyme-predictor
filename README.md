@@ -23,13 +23,15 @@ via the web interface, the models retrain automatically.
 
 | Target | AUC | CI 95% | Best Model | Selected Features | N |
 |--------|-----|--------|------------|-------------------|---|
-| Severity | 0.84 | [0.73, 0.94] | LR | hrv_rmssd_night_t0, ans_status_t2 | 60 |
-| Autonomic Dysfunction | 0.86 | [0.75, 0.95] | LR | hrv_rmssd_night_t0, hrv_lf_hf_ratio_t1, hrv_sd1_t0 | 54 |
-| PEM | 0.79 | [0.67, 0.90] | LR | hrv_rmssd_night_t0, recovery_sublevel_t0 | 60 |
-| Fatigue | 0.79 | [0.66, 0.92] | LR | hrv_rmssd_night_t0, hrv_rmssd_night_t1, sleep_wake_min_t2 | 60 |
-| Brain Fog | 0.99 | [0.95, 1.00] | LR | ans_status_t0, hrv_rmssd_night_t1, recovery_sublevel_t3 | 60 ⚠ |
+| Severity | 0.92 | [0.84, 0.99] | LR | hrv_rmssd_night_t0, ans_status_t2, hrv_sdnn_t2, hrv_dfa_alpha1_t2, recovery_sublevel_t0 | 61 |
+| Autonomic Dysfunction | 0.84 | [0.72, 0.94] | LR | hrv_rmssd_night_t0, sleep_wake_min_t2 | 55 |
+| PEM | 0.80 | [0.66, 0.90] | LR | hrv_rmssd_night_t0, hrv_pnn50_t1, hrv_rmssd_night_t1 | 61 |
+| Fatigue | 0.83 | [0.71, 0.95] | LR | hrv_rmssd_night_t0, sleep_wake_min_t2, hrv_hf_power_t0 | 61 |
+| Brain Fog | 0.99 | [0.95, 1.00] | LR | ans_status_t0, hrv_rmssd_night_t1, recovery_sublevel_t3 | 61 ⚠ |
 
-⚠ Brain fog class split 54/6 — AUC likely inflated. Monitoring.
+⚠ Brain fog class split — AUC likely inflated. Monitoring.
+
+**Reproducibility note:** Running `scripts/retrain_predictor.py` from the published data produces AUC 0.837 for autonomic dysfunction (deterministic, seed=42). The live pipeline at kineticaai.com (0.829) uses a cleaner L4 feature extraction path (`hrv_rmssd_calc` vs `hrv_rri_mean_ms`) with tighter data provenance. Both results are within the bootstrap CI [0.715, 0.936].
 
 ### Key Finding: Physiological Coherence
 
@@ -74,9 +76,9 @@ Polar Grit X2 (PPG sensor, nocturnal)
 |-----------|-------|
 | Design | Prospective longitudinal N-of-1 |
 | Subject | Single adult, post-Lyme / autonomic dysfunction |
-| Observation | 198 days continuous Polar monitoring |
-| Diary entries | 62 |
-| Effective pairs | 60 |
+| Observation | 243 days continuous Polar monitoring |
+| Diary entries | 61 |
+| Effective pairs | 61 (55 for autonomic dysfunction) |
 | Symptom domains | 7 (severity, PEM, fatigue, brain fog, autonomic, pain, mood) |
 | Target domains | 5 (severity, PEM, fatigue, brain fog, autonomic dysfunction) |
 | Wearable | Polar Grit X2 |

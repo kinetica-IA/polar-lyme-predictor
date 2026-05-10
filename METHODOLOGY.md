@@ -1,3 +1,5 @@
+> **Archive — v1 (2026-03-01).** Current methodology in README.md.
+
 # Methodology: ANS-Based Multi-Symptom Prediction in Post-Infectious Fatigue
 
 ## Model v3 — Multi-Target, Forward Selection, Bootstrap CIs

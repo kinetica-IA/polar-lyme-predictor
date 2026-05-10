@@ -1,3 +1,5 @@
+> **Archive — v1 (2026-03-01).** Current methodology in README.md.
+
 # Abstract v1 — DRAFT
 
 **Title:** Autonomic Nervous System Status Predicts Symptomatic Exacerbations 48 Hours in Advance in Post-Infectious Fatigue (Post-Lyme): An N-of-1 Longitudinal Study Using a Consumer Wearable
